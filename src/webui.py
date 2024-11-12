@@ -7,7 +7,7 @@ from argparse import ArgumentParser
 
 import gradio as gr
 
-from main import song_cover_pipeline
+from main import song_cover_pipeline, download_audio
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -175,7 +175,7 @@ if __name__ == '__main__':
     
     with gr.Blocks(title='AICoverGenWebUI') as app:
 
-        gr.Label('AICoverGen WebUI created with ❤️', show_label=False)
+        gr.Label('Ryouko RVC Mod created with ❤️', show_label=False)
 
         # main tab
         with gr.Tab("Generate"):
@@ -184,16 +184,17 @@ if __name__ == '__main__':
                 ref_btn = gr.Button('Refresh Models 🔁', variant='primary')                    
                         
                 with gr.Row():          
-                    with gr.Column() as yt_link_col:
-                        song_input = gr.Text(label='Song input', info='Link to a song on full path to a local file or video/audio from many sites, check the complete list [here](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md). For file upload, click the button below.')
-                        show_file_upload_button = gr.Button('Upload file instead')
-
-                    with gr.Column(visible=False) as file_upload_col:
-                        local_file = gr.File(label='Audio file')
-                        song_input_file = gr.UploadButton('Upload 📂', file_types=['audio'], variant='primary')
-                        show_yt_link_button = gr.Button('Paste YouTube link/Path to local file instead')
-                        song_input_file.upload(process_file_upload, inputs=[song_input_file], outputs=[local_file, song_input])
-
+                    local_file = gr.Audio(label='Audio file', type='filepath')
+                    with gr.Accordion('Inference by Link', open=False):
+                        with gr.Row():
+                            infer_link = gr.Textbox(label = "Link",placeholder = "Paste the link here",interactive = True)
+                        with gr.Row():
+                            gr.Markdown("You can paste the link to the video/audio from many sites, check the complete list [here](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md)")
+                        with gr.Row():
+                            download_button = gr.Button("Download!", variant = "primary")
+                                       
+                        
+        
                     with gr.Column():
                         pitch = gr.Slider(-3, 3, value=0, step=1, label='Pitch Change (Vocals ONLY)', info='Generally, use 1 for male to female conversions and -1 for vice-versa. (Octaves)')
                         pitch_all = gr.Slider(-12, 12, value=0, step=1, label='Overall Pitch Change', info='Changes pitch/key of vocals and instrumentals together. Altering this slightly reduces sound quality. (Semitones)')
@@ -232,12 +233,14 @@ if __name__ == '__main__':
             with gr.Row():
                 clear_btn = gr.ClearButton(value='Clear', components=[song_input, rvc_model, keep_files, local_file])
                 generate_btn = gr.Button("Generate", variant='primary')
-                ai_cover = gr.Audio(label='AI Cover', show_share_button=False)
+                ai_cover = gr.Audio(label='AI Cover Output', show_share_button=False)
+
+            download_button.click(download_audio, [infer_link], [local_file])
 
             ref_btn.click(update_models_list, None, outputs=rvc_model)
             is_webui = gr.Number(value=1, visible=False)
             generate_btn.click(song_cover_pipeline,
-                               inputs=[song_input, rvc_model, pitch, keep_files, is_webui, main_gain, backup_gain,
+                               inputs=[local_file, rvc_model, pitch, keep_files, is_webui, main_gain, backup_gain,
                                        inst_gain, index_rate, filter_radius, rms_mix_rate, f0_method, crepe_hop_length,
                                        protect, pitch_all, reverb_rm_size, reverb_wet, reverb_dry, reverb_damping,
                                        output_format],
