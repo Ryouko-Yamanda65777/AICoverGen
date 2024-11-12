@@ -16,12 +16,7 @@ rvc_models_dir = os.path.join(BASE_DIR, 'rvc_models')
 output_dir = os.path.join(BASE_DIR, 'song_output')
 
 
-SUPPORTED_SITES = {
-    'youtu.be', 'youtube.com', 'www.youtube.com', 'music.youtube.com',
-    'vimeo.com', 'soundcloud.com', 'dailymotion.com', 'tiktok.com',
-    'pornhub.com', 'www.pornhub.com', 'xvideos.com', 'www.xvideos.com',
-    'xnxx.com', 'www.xnxx.com'
-}
+
 
 
 def get_current_models(models_dir):
@@ -188,9 +183,7 @@ if __name__ == '__main__':
             with gr.Accordion('Main Options'):
                 with gr.Row():
                     rvc_model = gr.Dropdown(voice_models, label='Voice Models', info='Models folder "AICoverGen --> rvc_models". After new models are added into this folder, click the refresh button')
-                    ref_btn = gr.Button('Refresh Models 🔁', variant='primary')
-
-                    with gr.Column():
+                    ref_btn = gr.Button('Refresh Models 🔁', variant='primary')                    
                         
                     with gr.Column() as yt_link_col:
                         song_input = gr.Text(label='Song input', info=f'Link to a song on full path to a local file or video/audio from many sites, check the complete list [here](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md). For file upload, click the button below.')
