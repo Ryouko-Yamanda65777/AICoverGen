@@ -187,12 +187,13 @@ if __name__ == '__main__':
 
             with gr.Accordion('Main Options'):
                 with gr.Row():
-                    with gr.Column():
-                        rvc_model = gr.Dropdown(voice_models, label='Voice Models', info='Models folder "AICoverGen --> rvc_models". After new models are added into this folder, click the refresh button')
-                        ref_btn = gr.Button('Refresh Models 🔁', variant='primary')
+                    rvc_model = gr.Dropdown(voice_models, label='Voice Models', info='Models folder "AICoverGen --> rvc_models". After new models are added into this folder, click the refresh button')
+                    ref_btn = gr.Button('Refresh Models 🔁', variant='primary')
 
+                    with gr.Column():
+                        
                     with gr.Column() as yt_link_col:
-                        song_input = gr.Text(label='Song input', info=f'Link to a song on media or full path to a local file. For file upload, click the button below, for now only supported {SUPPORTED_SITES}.')
+                        song_input = gr.Text(label='Song input', info=f'Link to a song on full path to a local file or video/audio from many sites, check the complete list [here](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md). For file upload, click the button below.')
                         show_file_upload_button = gr.Button('Upload file instead')
 
                     with gr.Column(visible=False) as file_upload_col:
