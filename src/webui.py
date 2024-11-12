@@ -186,7 +186,7 @@ if __name__ == '__main__':
                     ref_btn = gr.Button('Refresh Models 🔁', variant='primary')                    
                         
                     with gr.Column() as yt_link_col:
-                        song_input = gr.Text(label='Song input', info=f'Link to a song on full path to a local file or video/audio from many sites, check the complete list [here](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md). For file upload, click the button below.')
+                        song_input = gr.Text(label='Song input', info='Link to a song on full path to a local file or video/audio from many sites, check the complete list [here](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md). For file upload, click the button below.')
                         show_file_upload_button = gr.Button('Upload file instead')
 
                     with gr.Column(visible=False) as file_upload_col:
