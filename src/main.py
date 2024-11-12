@@ -3,6 +3,10 @@ import gc
 import hashlib
 import json
 import os
+import re
+import random
+from scipy.io.wavfile import write
+from scipy.io.wavfile import read
 import shlex
 import subprocess
 from contextlib import suppress
@@ -28,92 +32,22 @@ output_dir = os.path.join(BASE_DIR, 'song_output')
 
 
 
-# List of sites to check for custom handling (e.g., YouTube, Vimeo, Pornhub, Xvideos, Xnxx)
-SUPPORTED_SITES = {
-    'youtu.be', 'youtube.com', 'www.youtube.com', 'music.youtube.com',
-    'vimeo.com', 'soundcloud.com', 'dailymotion.com', 'tiktok.com',
-    'pornhub.com', 'www.pornhub.com', 'xvideos.com', 'www.xvideos.com',
-    'xnxx.com', 'www.xnxx.com'
-}
-
-def get_media_id(url, ignore_playlist=True):
-    """
-    Extracts the media ID from a video/audio URL for sites supported by yt-dlp.
-
-    Parameters:
-        url (str): The video/audio URL.
-        ignore_playlist (bool): If True, ignores playlist ID in favor of video ID.
-
-    Returns:
-        str or None: The media ID if found; None otherwise.
-    """
-    query = urlparse(url)
-    
-    # YouTube-specific ID extraction
-    if query.hostname in {'youtu.be', 'www.youtube.com', 'youtube.com', 'music.youtube.com'}:
-        if query.hostname == 'youtu.be':
-            return query.path[1:]
-        if query.path == '/watch':
-            return parse_qs(query.query).get('v', [None])[0]
-        if query.path.startswith(('/embed/', '/v/')):
-            return query.path.split('/')[2]
-        if not ignore_playlist:
-            return parse_qs(query.query).get('list', [None])[0]
-    
-    # Vimeo-specific ID extraction
-    elif query.hostname in {'vimeo.com'}:
-        if re.match(r'/\d+', query.path):
-            return query.path.split('/')[1]
-    
-    # SoundCloud-specific ID extraction
-    elif query.hostname in {'soundcloud.com'}:
-        return query.path.strip('/')
-    
-    # Dailymotion-specific ID extraction
-    elif query.hostname in {'dailymotion.com'}:
-        if query.path.startswith('/video/'):
-            return query.path.split('/')[2]
-    
-    # TikTok-specific ID extraction
-    elif query.hostname in {'tiktok.com'}:
-        if query.path.startswith('/@'):
-            return query.path.split('/')[2]
-
-    # Pornhub-specific ID extraction
-    elif query.hostname in {'pornhub.com', 'www.pornhub.com'}:
-        if query.path.startswith('/view_video.php'):
-            return parse_qs(query.query).get('viewkey', [None])[0]
-
-    # Xvideos-specific ID extraction
-    elif query.hostname in {'xvideos.com', 'www.xvideos.com'}:
-        if re.match(r'/video\d+/', query.path):
-            return query.path.split('/')[1].replace('video', '')
-
-    # Xnxx-specific ID extraction
-    elif query.hostname in {'xnxx.com', 'www.xnxx.com'}:
-        if re.match(r'/video-.+/', query.path):
-            return query.path.split('/')[1].replace('video-', '')
-
-    # Return None if URL doesn't match known patterns
-    return None
-
-
-def yt_download(link):
+def download_audio(url):
     ydl_opts = {
-        'format': 'bestaudio',
-        'outtmpl': '%(title)s',
-        'nocheckcertificate': True,
-        'ignoreerrors': True,
-        'no_warnings': True,
-        'quiet': True,
-        'extractaudio': True,
-        'postprocessors': [{'key': 'FFmpegExtractAudio', 'preferredcodec': 'mp3'}],
+        'format': 'bestaudio/best',
+        'outtmpl': 'ytdl/%(title)s.%(ext)s',
+        'postprocessors': [{
+            'key': 'FFmpegExtractAudio',
+            'preferredcodec': 'wav',
+            'preferredquality': '192',
+        }],
     }
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        result = ydl.extract_info(link, download=True)
-        download_path = ydl.prepare_filename(result, outtmpl='%(title)s.mp3')
 
-    return download_path
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        info_dict = ydl.extract_info(url, download=True)
+        download_path = ydl.prepare_filename(info_dict).rsplit('.', 1)[0] + '.wav'
+        
+        return download_path
 
 
 def raise_exception(error_msg, is_webui):
@@ -206,7 +140,7 @@ def preprocess_song(song_input, mdx_model_params, song_id, is_webui, input_type,
     if input_type == 'yt':
         display_progress('[~] Downloading song...', 0, is_webui, progress)
         song_link = song_input.split('&')[0]
-        orig_song_path = yt_download(song_link)
+        orig_song_path = download_audio(song_link)
     elif input_type == 'local':
         orig_song_path = song_input
         keep_orig = True
@@ -288,7 +222,7 @@ def song_cover_pipeline(song_input, voice_model, pitch_change, keep_files,
         # if youtube url
         if urlparse(song_input).scheme == 'https':
             input_type = 'yt'
-            song_id = get_media_id(song_input)
+            song_id = download_audio(song_input)
             if song_id is None:
                 error_msg = 'Invalid url.'
                 raise_exception(error_msg, is_webui)
