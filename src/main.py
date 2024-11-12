@@ -6,8 +6,6 @@ import os
 import shlex
 import subprocess
 from contextlib import suppress
-from urllib.parse import urlparse, parse_qs
-
 import gradio as gr
 import librosa
 import numpy as np
@@ -17,7 +15,8 @@ import yt_dlp
 from pedalboard import Pedalboard, Reverb, Compressor, HighpassFilter
 from pedalboard.io import AudioFile
 from pydub import AudioSegment
-
+from urllib.parse import urlparse, parse_qs
+import re
 from mdx import run_mdx
 from rvc import Config, load_hubert, get_vc, rvc_infer
 
@@ -28,35 +27,74 @@ rvc_models_dir = os.path.join(BASE_DIR, 'rvc_models')
 output_dir = os.path.join(BASE_DIR, 'song_output')
 
 
-def get_youtube_video_id(url, ignore_playlist=True):
+
+# List of sites to check for custom handling (e.g., YouTube, Vimeo, Pornhub, Xvideos, Xnxx)
+SUPPORTED_SITES = {
+    'youtu.be', 'youtube.com', 'www.youtube.com', 'music.youtube.com',
+    'vimeo.com', 'soundcloud.com', 'dailymotion.com', 'tiktok.com',
+    'pornhub.com', 'www.pornhub.com', 'xvideos.com', 'www.xvideos.com',
+    'xnxx.com', 'www.xnxx.com'
+}
+
+def get_media_id(url, ignore_playlist=True):
     """
-    Examples:
-    http://youtu.be/SA2iWivDJiE
-    http://www.youtube.com/watch?v=_oPAwA_Udwc&feature=feedu
-    http://www.youtube.com/embed/SA2iWivDJiE
-    http://www.youtube.com/v/SA2iWivDJiE?version=3&amp;hl=en_US
+    Extracts the media ID from a video/audio URL for sites supported by yt-dlp.
+
+    Parameters:
+        url (str): The video/audio URL.
+        ignore_playlist (bool): If True, ignores playlist ID in favor of video ID.
+
+    Returns:
+        str or None: The media ID if found; None otherwise.
     """
     query = urlparse(url)
-    if query.hostname == 'youtu.be':
-        if query.path[1:] == 'watch':
-            return query.query[2:]
-        return query.path[1:]
-
-    if query.hostname in {'www.youtube.com', 'youtube.com', 'music.youtube.com'}:
-        if not ignore_playlist:
-            # use case: get playlist id not current video in playlist
-            with suppress(KeyError):
-                return parse_qs(query.query)['list'][0]
+    
+    # YouTube-specific ID extraction
+    if query.hostname in {'youtu.be', 'www.youtube.com', 'youtube.com', 'music.youtube.com'}:
+        if query.hostname == 'youtu.be':
+            return query.path[1:]
         if query.path == '/watch':
-            return parse_qs(query.query)['v'][0]
-        if query.path[:7] == '/watch/':
-            return query.path.split('/')[1]
-        if query.path[:7] == '/embed/':
+            return parse_qs(query.query).get('v', [None])[0]
+        if query.path.startswith(('/embed/', '/v/')):
             return query.path.split('/')[2]
-        if query.path[:3] == '/v/':
+        if not ignore_playlist:
+            return parse_qs(query.query).get('list', [None])[0]
+    
+    # Vimeo-specific ID extraction
+    elif query.hostname in {'vimeo.com'}:
+        if re.match(r'/\d+', query.path):
+            return query.path.split('/')[1]
+    
+    # SoundCloud-specific ID extraction
+    elif query.hostname in {'soundcloud.com'}:
+        return query.path.strip('/')
+    
+    # Dailymotion-specific ID extraction
+    elif query.hostname in {'dailymotion.com'}:
+        if query.path.startswith('/video/'):
+            return query.path.split('/')[2]
+    
+    # TikTok-specific ID extraction
+    elif query.hostname in {'tiktok.com'}:
+        if query.path.startswith('/@'):
             return query.path.split('/')[2]
 
-    # returns None for invalid YouTube url
+    # Pornhub-specific ID extraction
+    elif query.hostname in {'pornhub.com', 'www.pornhub.com'}:
+        if query.path.startswith('/view_video.php'):
+            return parse_qs(query.query).get('viewkey', [None])[0]
+
+    # Xvideos-specific ID extraction
+    elif query.hostname in {'xvideos.com', 'www.xvideos.com'}:
+        if re.match(r'/video\d+/', query.path):
+            return query.path.split('/')[1].replace('video', '')
+
+    # Xnxx-specific ID extraction
+    elif query.hostname in {'xnxx.com', 'www.xnxx.com'}:
+        if re.match(r'/video-.+/', query.path):
+            return query.path.split('/')[1].replace('video-', '')
+
+    # Return None if URL doesn't match known patterns
     return None
 
 
@@ -250,9 +288,9 @@ def song_cover_pipeline(song_input, voice_model, pitch_change, keep_files,
         # if youtube url
         if urlparse(song_input).scheme == 'https':
             input_type = 'yt'
-            song_id = get_youtube_video_id(song_input)
+            song_id = get_media_id(song_input)
             if song_id is None:
-                error_msg = 'Invalid YouTube url.'
+                error_msg = 'Invalid url.'
                 raise_exception(error_msg, is_webui)
 
         # local audio file
