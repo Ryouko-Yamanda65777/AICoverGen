@@ -16,6 +16,14 @@ rvc_models_dir = os.path.join(BASE_DIR, 'rvc_models')
 output_dir = os.path.join(BASE_DIR, 'song_output')
 
 
+SUPPORTED_SITES = {
+    'youtu.be', 'youtube.com', 'www.youtube.com', 'music.youtube.com',
+    'vimeo.com', 'soundcloud.com', 'dailymotion.com', 'tiktok.com',
+    'pornhub.com', 'www.pornhub.com', 'xvideos.com', 'www.xvideos.com',
+    'xnxx.com', 'www.xnxx.com'
+}
+
+
 def get_current_models(models_dir):
     models_list = os.listdir(models_dir)
     items_to_remove = ['hubert_base.pt', 'MODELS.txt', 'public_models.json', 'rmvpe.pt']
@@ -166,6 +174,10 @@ if __name__ == '__main__':
     with open(os.path.join(rvc_models_dir, 'public_models.json'), encoding='utf8') as infile:
         public_models = json.load(infile)
 
+
+
+
+    
     with gr.Blocks(title='AICoverGenWebUI') as app:
 
         gr.Label('AICoverGen WebUI created with ❤️', show_label=False)
@@ -180,7 +192,7 @@ if __name__ == '__main__':
                         ref_btn = gr.Button('Refresh Models 🔁', variant='primary')
 
                     with gr.Column() as yt_link_col:
-                        song_input = gr.Text(label='Song input', info='Link to a song on YouTube or full path to a local file. For file upload, click the button below.')
+                        song_input = gr.Text(label='Song input', info=f'Link to a song on media or full path to a local file. For file upload, click the button below, for now only supported {SUPPORTED_SITES}.')
                         show_file_upload_button = gr.Button('Upload file instead')
 
                     with gr.Column(visible=False) as file_upload_col:
